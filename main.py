@@ -1,8 +1,10 @@
 import requests
 from bs4 import BeautifulSoup
 import csv
+import os
 
 def scrape_to_csv(url, output_file):
+    print("\033[92mScraping...\033[0m")
     response = requests.get(url)
     soup = BeautifulSoup(response.text, 'html.parser')
     tables = soup.find_all('table')
@@ -17,22 +19,29 @@ def scrape_to_csv(url, output_file):
                 row_data.extend(links)
                 if len(row_data) >= 4:
                     if '/' in row_data[1]:
-                        row_data[1] = row_data[1].replace('/', '|')
+                        row_data[1] = row_data[1].replace('/', '.')
+                    if '&' in row_data[1]:
+                        row_data[1] = row_data[1].replace('&', 'and')
+                    if ',' in row_data[1]:
+                        row_data[1] = row_data[1].replace(',', '.')
+                    if '|' in row_data[1]:
+                        row_data[1] = row_data[1].replace('|', '.')
                     row_data_modified = [row_data[1], row_data[2], row_data[4]]
                     table_data.append(row_data_modified)
                 
             writer.writerows(table_data)
             writer.writerow([])
 
-    print(f"Tables scraped and saved to {output_file}")
+    print(f"\033[93mTables scraped and saved to {output_file} \033[0m")
 
 def scrape_each_url():
     with open('csv/Company_table.csv', 'r', newline='', encoding='utf-8') as csv_file:
         reader = csv.reader(csv_file)
         for row in reader:
             if len(row) > 0:
-                filename = 'csv/' + row[0] + '.csv'
-                with open(filename, 'w', newline='', encoding='utf-8') as csv_file:
+                folder_name = name_decider_normal(row[0])
+                filename = 'csv/' + folder_name + '.csv'
+                with open(filename, 'a', newline='', encoding='utf-8') as csv_file:
                     writer = csv.writer(csv_file)
                     url = "https://results.channeli.in/" + row[2]
                     response = requests.get(url)
@@ -40,27 +49,92 @@ def scrape_each_url():
                     tables = soup.find_all('table')
                     for table in tables:
                         table_data = []
-                        branch_data = []
+                        branch_data = [(row[0], 0)]
                         for row in table.find_all('tr'):
                             row_data = [cell.get_text(strip=True) for cell in row.find_all(['td'])]
                             if len(row_data) > 0:
                                 found = False
                                 for i, (branch, count) in enumerate(branch_data):
+                                    row_data[3] = row_data[3].replace(',', '')
                                     if row_data[3] == branch:
                                         branch_data[i] = (branch, count + 1)
                                         found = True
                                         break
                                 if not found:
+                                    row_data[3] = row_data[3].replace(',', '')
                                     branch_data.append((row_data[3], 1))
-
                         table_data.append(branch_data)
 
                         writer.writerows(table_data)
                         writer.writerow([])
-    
+
+def clean_csvs():
+    for filename in os.listdir('csv/'):
+        if filename.endswith('.csv') and filename != 'Company_table.csv':
+            with open('csv/' + filename, 'r', newline='', encoding='utf-8') as csv_file:
+                print("\033[93mCleaning {filename}...\033[0m")
+                reader = csv.reader(csv_file)
+                rows = list(reader)
+                new_rows = [['Company']]
+                for row in rows:
+                    if len(row) > 1:
+                        [companyname, counter] = string_pair_splitter(row[0])
+                        new_row = [companyname]
+                        for i in range(1, len(row)):
+                            [branch, count] = string_pair_splitter(row[i])
+                            if branch not in new_rows[0]:
+                                new_rows[0].append(branch)
+                            branch_index = new_rows[0].index(branch)
+                            if len(new_row) < branch_index + 1:
+                                for _ in range(len(new_row), branch_index + 1):
+                                    new_row.append(0)
+                            new_row[branch_index] = count
+                        new_rows.append(new_row)
+                with open('csv/' + filename, 'w', newline='', encoding='utf-8') as csv_file:
+                    writer = csv.writer(csv_file)
+                    writer.writerows(new_rows)
+
+def string_pair_splitter(str):
+    str = str.replace('(', '').replace(')', '').replace("'", '')
+    str = str.split(',')
+    str = [x.strip() for x in str]
+    return str
+
+# edit these lists to add more company types
+def name_decider_normal(name):
+    name = name.lower()
+    PPO = ['ppo']
+    SDE = ['software', 'SDE', 'developer', 'dev', 'lead']
+    CONSULT = ['consult', 'management', 'business', 'strategy', 'bank', 'finance']
+    DATA = ['data', 'anal', 'data science', 'machine learning', 'ai', 'artificial intelligence', 'big data', 'intelligence', 'ml']
+    CORE = ['electrical', 'electronics', 'core', 'hardware', 'networking', 'embedded', 'vlsi', 'communication', 'tele', 'mech', 'elec', 'e&i', 'ece', 'civil', 'chem', 'meta', 'mining', 'geo', 'petro', 'auto', 'reliance', 'field', 'environment']
+    EDU = ['education', 'edtech', 'teaching', 'vedantu', 'byju', 'unacademy', 'edureka', 'upgrad', 'edu', 'fiitjee', 'allen', 'institute']
+
+    if any(word in name for word in PPO):
+        return 'PPO'
+    elif any(word in name for word in SDE):
+        return 'SDE'
+    elif any(word in name for word in CONSULT):
+        return 'consult-finance'
+    elif any(word in name for word in DATA):
+        return 'data'
+    elif any(word in name for word in CORE):
+        return 'core'
+    elif any(word in name for word in EDU):
+        return 'education'
+    else:
+        return 'other'
 
 if __name__ == "__main__":
     url = "https://results.channeli.in/2023/placement/company/"
     output_file = 'csv/Company_table.csv'
+    if not os.path.exists('csv'):
+            os.makedirs('csv')
     scrape_to_csv(url, output_file)
+    print("\033[94mScraping complete. Now scraping each URL...\033[0m")
     scrape_each_url()
+    print("\033[94mScraping complete. Now cleaning All CSVs...\033[0m")
+    clean_csvs()
+    print("\033[91mCleaning complete.\033[0m")
+
+
