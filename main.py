@@ -72,7 +72,7 @@ def clean_csvs():
     for filename in os.listdir('csv/'):
         if filename.endswith('.csv') and filename != 'Company_table.csv':
             with open('csv/' + filename, 'r', newline='', encoding='utf-8') as csv_file:
-                print("\033[93mCleaning {filename}...\033[0m")
+                print(f"\033[93mCleaning {filename}...\033[0m")
                 reader = csv.reader(csv_file)
                 rows = list(reader)
                 new_rows = [['Company']]
