@@ -75,11 +75,12 @@ def clean_csvs():
                 print(f"\033[93mCleaning {filename}...\033[0m")
                 reader = csv.reader(csv_file)
                 rows = list(reader)
-                new_rows = [['Company']]
+                new_rows = [['Company', 'CTC']]
                 for row in rows:
                     if len(row) > 1:
                         [companyname, counter] = string_pair_splitter(row[0])
                         new_row = [companyname]
+                        new_row.append(CTC_finder(companyname))
                         for i in range(1, len(row)):
                             [branch, count] = string_pair_splitter(row[i])
                             if branch not in new_rows[0]:
@@ -99,6 +100,71 @@ def string_pair_splitter(str):
     str = str.split(',')
     str = [x.strip() for x in str]
     return str
+
+def CTC_finder(name):
+    print(f"\033[92mFinding CTC for {name}\033[0m")
+    name = name.lower()
+    name = name.replace('(', '').replace(')', '').replace("'", '').replace(',', '').replace('|', '')
+    queries = name.split()
+    if len(queries) > 3:
+        queries = queries[:3]
+    url = "https://channeli.in/api/noticeboard/new/?keyword="
+    for query in queries:
+        url = url + query + "%20"
+    response = requests.get(url)
+    try:
+            response = response.json()
+    except:
+        print("\033[91mNo CTC found\033[0m")
+        return 'notfound'
+    if response.get('results') == None:
+        print("\033[91mNo CTC found\033[0m")
+        return 'notfound'
+    response = response.get('results')
+    identity = []
+    for result in response:
+        if 'submission' in result.get('title').lower():
+            identity.append(result.get('id'))
+    print(identity)
+    # final = []
+    url_list = ""
+    for id in identity:
+        # site_url = "https://channeli.in/api/noticeboard/new/" + str(id)
+        site_url = "https://channeli.in/noticeboard/notice/" + str(id) + " "
+        url_list = url_list + site_url
+
+    print(url_list)
+    return url_list
+        # response = requests.get(site_url)
+        # try:
+        #     response = response.json()
+        # except:
+        #     print("\033[91mNo CTC found\033[0m")
+        #     return 'notfound'
+        # response = response.get('content')
+        # response = response.split('\n')
+
+        
+        
+        # for line in response:
+        #     line = BeautifulSoup(line, 'html.parser').get_text()
+        #     if ('CTC' in line or 'package' in line or 'compensation' in line or 'INR' in line or 'LPA' in line) and any(char.isdigit() for char in line):
+        #         ctc_index = line.lower().find('ctc')
+        #         if ctc_index != -1:
+        #             next_15_chars = line[ctc_index + 3:ctc_index + 18]
+        #             final.append(next_15_chars)
+        #         else:
+        #             final.append(line)
+                
+    # if len(final) == 0:
+    #     print("\033[91mNo CTC found\033[0m")
+    #     return 'notfound'
+    # else:
+    #     print(final[0])
+    #     return final[0]
+
+
+
 
 # edit these lists to add more company types
 def name_decider_normal(name):
@@ -136,5 +202,7 @@ if __name__ == "__main__":
     print("\033[94mScraping complete. Now cleaning All CSVs...\033[0m")
     clean_csvs()
     print("\033[91mCleaning complete.\033[0m")
+
+
 
 
