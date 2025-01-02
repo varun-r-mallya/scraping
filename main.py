@@ -192,7 +192,7 @@ def name_decider_normal(name):
         return 'other'
 
 if __name__ == "__main__":
-    url = "https://results.channeli.in/2023/placement/company/"
+    url = "https://results.channeli.in/2024/internship/company/"
     output_file = 'csv/Company_table.csv'
     if not os.path.exists('csv'):
             os.makedirs('csv')
